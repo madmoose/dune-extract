@@ -1,10 +1,10 @@
 #[derive(Debug)]
 pub enum Error {
-	EntryNotFound,
+    EntryNotFound,
     // InvalidDatFile,
     IOError(std::io::Error),
     // SpriteTOCError,
-    PNGEncodingError(png::EncodingError)
+    PNGEncodingError(png::EncodingError),
 }
 
 impl From<std::io::Error> for Error {

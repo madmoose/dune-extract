@@ -1,11 +1,11 @@
 use std::{
     fs::File,
-    io::{BufReader, Read, Seek, Cursor},
+    io::{BufReader, Cursor, Read, Seek},
     path::PathBuf,
 };
 
-use crate::{bytes_ext::ReadBytesExt, unhsq::unhsq};
 use crate::error::Error;
+use crate::{bytes_ext::ReadBytesExt, unhsq::unhsq};
 
 pub struct DatFile {
     reader: BufReader<File>,

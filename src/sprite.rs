@@ -14,7 +14,14 @@ fn write_pixel(dst: &mut [u8], w: usize, x: usize, y: usize, pal: &[u8], c: u8) 
     dst[4 * (y * w + x) + 3] = 255;
 }
 
-pub fn draw_4bpp(dst: &mut [u8], src: &mut Cursor<&[u8]>, w: usize, h: usize, pal: &[u8], mode: u8) -> io::Result<()> {
+pub fn draw_4bpp(
+    dst: &mut [u8],
+    src: &mut Cursor<&[u8]>,
+    w: usize,
+    h: usize,
+    pal: &[u8],
+    mode: u8,
+) -> io::Result<()> {
     for y in 0..h {
         let mut line_remain = 4 * ((w + 3) / 4);
         let mut x = 0;
@@ -36,7 +43,7 @@ pub fn draw_4bpp(dst: &mut [u8], src: &mut Cursor<&[u8]>, w: usize, h: usize, pa
             line_remain -= 2;
         }
     }
-	Ok(())
+    Ok(())
 }
 
 pub fn draw_4bpp_rle(
@@ -46,7 +53,7 @@ pub fn draw_4bpp_rle(
     h: usize,
     pal: &[u8],
     mode: u8,
-)  -> io::Result<()> {
+) -> io::Result<()> {
     for y in 0..h {
         let mut line_remain = 4 * ((w + 3) / 4);
         let mut x = 0;
@@ -91,10 +98,17 @@ pub fn draw_4bpp_rle(
             }
         }
     }
-	Ok(())
+    Ok(())
 }
 
-pub fn draw_8bpp(dst: &mut [u8], src: &mut Cursor<&[u8]>, w: usize, h: usize, pal: &[u8], mode: u8) -> io::Result<()> {
+pub fn draw_8bpp(
+    dst: &mut [u8],
+    src: &mut Cursor<&[u8]>,
+    w: usize,
+    h: usize,
+    pal: &[u8],
+    mode: u8,
+) -> io::Result<()> {
     for y in 0..h {
         for x in 0..w {
             let value = src.read_u8()?;
@@ -103,7 +117,7 @@ pub fn draw_8bpp(dst: &mut [u8], src: &mut Cursor<&[u8]>, w: usize, h: usize, pa
             }
         }
     }
-	Ok(())
+    Ok(())
 }
 
 pub fn draw_8bpp_rle(
@@ -113,7 +127,7 @@ pub fn draw_8bpp_rle(
     h: usize,
     pal: &[u8],
     mode: u8,
-)  -> io::Result<()> {
+) -> io::Result<()> {
     for y in 0..h {
         let mut x = 0;
 
@@ -140,5 +154,5 @@ pub fn draw_8bpp_rle(
             }
         }
     }
-	Ok(())
+    Ok(())
 }
