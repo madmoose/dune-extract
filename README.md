@@ -14,6 +14,8 @@ Resource extractor for Cryo's Dune (CD version).
 ./dune-extract [--dat-path <DAT_PATH>] extract-sprites <RESOURCE_NAME>
 ```
 
+Resource files will by default be extracted to the directory `dump`.
+
 When using `extract`, compressed resource files with the extension `.HSQ` will be exported with the extension `.BIN`.
 
 Sprites will exported as PNG files. Not all sprite resources have an included palette and will be exported with a gray-scale palette instead.
@@ -39,5 +41,6 @@ Commands:
 
 Options:
       --dat-path <DAT_PATH>
+      --out-path <OUT_PATH>  [default: dump]
   -h, --help                 Print help
 ```
