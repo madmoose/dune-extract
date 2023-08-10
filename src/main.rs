@@ -5,9 +5,8 @@ mod sprite;
 mod unhsq;
 
 use std::{
-    ffi::OsStr,
-    fs::File,
-    io::{BufWriter, Cursor, Write},
+    fs::{self, File},
+    io::{self, BufWriter, Cursor, Write},
     path::{Path, PathBuf},
 };
 
@@ -21,6 +20,8 @@ use crate::{bytes_ext::ReadBytesExt, dat_file::DatFile, error::Error};
 struct Cli {
     #[arg(long)]
     dat_path: Option<PathBuf>,
+    #[arg(long, default_value = "dump")]
+    out_path: PathBuf,
     #[command(subcommand)]
     command: Commands,
 }
@@ -32,12 +33,19 @@ enum Commands {
     /// Extracts all resource from DUNE.DAT, decompressing if needed
     ExtractAll,
     /// Extracts a resource from DUNE.DAT without decompressing
-    #[command(arg_required_else_help = true)]
     ExtractRaw { entry_name: String },
     /// Extracts a resource from DUNE.DAT, decompressing if needed
     Extract { entry_name: String },
     /// Extracts sprite resources from a sprite sheet
     ExtractSprites { entry_name: String },
+}
+
+fn create_file_for_entry(path: &Path, entry_name: &str) -> io::Result<File> {
+    let path = path.join(entry_name.split(r"\").collect::<PathBuf>());
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    File::create(path)
 }
 
 fn list(dat_file: &mut DatFile) {
@@ -50,42 +58,40 @@ fn list(dat_file: &mut DatFile) {
     println!("+------------------+------------+------------+");
 }
 
-fn extract_all(dat_file: &mut DatFile) -> Result<(), Error> {
+fn extract_all(path: &Path, dat_file: &mut DatFile) -> Result<(), Error> {
     let entry_names = dat_file
         .entries
         .iter()
         .map(|e| e.name.clone())
         .collect::<Vec<_>>();
     for name in entry_names.iter() {
-        extract(dat_file, name)?;
+        extract(path, dat_file, name)?;
     }
     Ok(())
 }
 
-fn extract_raw(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
+fn extract_raw(path: &Path, dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
     let data = dat_file.read_raw(entry_name)?;
 
-    let mut f = File::create(entry_name)?;
+    let mut f = create_file_for_entry(path, entry_name)?;
     f.write_all(data.as_slice())?;
 
     Ok(())
 }
 
-fn extract(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
+fn extract(path: &Path, dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
     println!("Extracting `{}`", entry_name);
 
     let data = dat_file.read(entry_name).expect("Entry not found");
 
-    let mut path: PathBuf = entry_name.into();
-    if path.extension() == Some(OsStr::new("HSQ")) {
-        path.set_extension("BIN");
-    }
-
-    let mut f = File::create(&path)?;
+    let mut f = if let Some(prefix) = entry_name.strip_suffix(".HSQ") {
+        let new_entry_name = prefix.to_owned() + ".BIN";
+        create_file_for_entry(path, &new_entry_name)?
+    } else {
+        create_file_for_entry(path, &entry_name)?
+    };
 
     f.write_all(data.as_slice())?;
-
-    println!("Extracted to `{}`", path.display());
 
     Ok(())
 }
@@ -246,18 +252,19 @@ fn extract_sprites(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error
 fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
+    let out_path = cli.out_path;
     let mut dat_file = DatFile::open(&cli.dat_path).expect("Failed to open DUNE.DAT");
 
     match &cli.command {
         Commands::List => list(&mut dat_file),
         Commands::ExtractAll => {
-            extract_all(&mut dat_file)?;
+            extract_all(&out_path, &mut dat_file)?;
         }
         Commands::ExtractRaw { entry_name } => {
-            extract_raw(&mut dat_file, entry_name)?;
+            extract_raw(&out_path, &mut dat_file, entry_name)?;
         }
         Commands::Extract { entry_name } => {
-            extract(&mut dat_file, entry_name)?;
+            extract(&out_path, &mut dat_file, entry_name)?;
         }
         Commands::ExtractSprites { entry_name } => {
             extract_sprites(&mut dat_file, entry_name)?;
