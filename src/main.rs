@@ -38,6 +38,8 @@ enum Commands {
     Extract { entry_name: String },
     /// Extracts sprite resources from a sprite sheet
     ExtractSprites { entry_name: String },
+    /// Extracts font resource
+    ExtractFont { entry_name: String },
 }
 
 fn create_file_for_entry(path: &Path, entry_name: &str) -> io::Result<File> {
@@ -195,7 +197,7 @@ fn extract_sprites(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error
         let file = File::create(path)?;
         let ref mut w = BufWriter::new(file);
 
-        let mut encoder = png::Encoder::new(w, width as u32, height as u32); // Width is 2 pixels and height is 1.
+        let mut encoder = png::Encoder::new(w, width as u32, height as u32);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
 
@@ -249,6 +251,80 @@ fn extract_sprites(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error
     Ok(())
 }
 
+fn extract_font(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
+    let cw = 8;
+    let ch1 = 9;
+    let ch2 = 7;
+    let width = cw * 16;
+    let height = ch1 * 8 + ch2 * 8;
+
+    let mut image_data = vec![0u8; width * height * 4];
+
+    let data = dat_file.read(entry_name)?;
+    let mut r = Cursor::new(data.as_slice());
+
+    let mut ws = [0; 256];
+    for i in 0..256 {
+        ws[i] = r.read_u8()?;
+    }
+
+    for al in 0..128 {
+        r.set_position((0x100 + ch1 * al) as u64);
+
+        let x = cw * (al % 16);
+        let y = ch1 * (al / 16);
+
+        for dy in 0..ch1 {
+            let bs = r.read_u8()?;
+            for dx in 0..cw {
+                if (bs << dx) & 0x80 == 0x80 {
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 0] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 1] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 2] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 3] = 255;
+                }
+            }
+        }
+    }
+    for al in 0..128 {
+        r.set_position((0x100 + 0x480 + ch2 * al) as u64);
+
+        let x = cw * (al % 16);
+        let y = ch2 * (al / 16) + (ch1 * 8);
+
+        for dy in 0..ch2 {
+            let bs = r.read_u8()?;
+            for dx in 0..cw {
+                if (bs << dx) & 0x80 == 0x80 {
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 0] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 1] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 2] = 255;
+                    image_data[4 * ((y + dy) * width + (x + dx)) + 3] = 255;
+                }
+            }
+        }
+    }
+
+    let file_stem = Path::new(entry_name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap();
+
+    let filename = format!("{}.png", file_stem);
+    let path = Path::new(&filename);
+    let file = File::create(path)?;
+    let ref mut w = BufWriter::new(file);
+
+    let mut encoder = png::Encoder::new(w, width as u32, height as u32);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(&image_data)?;
+
+    Ok(())
+}
+
 fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
@@ -268,6 +344,9 @@ fn main() -> Result<(), Error> {
         }
         Commands::ExtractSprites { entry_name } => {
             extract_sprites(&mut dat_file, entry_name)?;
+        }
+        Commands::ExtractFont { entry_name } => {
+            extract_font(&mut dat_file, entry_name)?;
         }
     }
     Ok(())
