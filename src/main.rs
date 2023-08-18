@@ -322,6 +322,8 @@ fn extract_font(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
     let mut writer = encoder.write_header()?;
     writer.write_image_data(&image_data)?;
 
+    println!("Glyph widths:\n{:?}", ws);
+
     Ok(())
 }
 
