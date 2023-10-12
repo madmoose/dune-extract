@@ -6,8 +6,9 @@ mod unhsq;
 
 use std::{
     fs::{self, File},
-    io::{self, BufWriter, Cursor, Write},
+    io::{self, BufWriter, Cursor, Read, Write},
     path::{Path, PathBuf},
+    slice,
 };
 
 use clap::{Parser, Subcommand};
@@ -30,6 +31,8 @@ struct Cli {
 enum Commands {
     /// List the contents of DUNE.DAT
     List,
+    /// Decompress RLE-compressed save file
+    DecompressSav { file_name: String },
     /// Extracts all resource from DUNE.DAT, decompressing if needed
     ExtractAll,
     /// Extracts a resource from DUNE.DAT without decompressing
@@ -58,6 +61,56 @@ fn list(dat_file: &mut DatFile) {
         println!("| {:16} | {:-10} | {:-10} |", e.name, e.offset, e.size);
     }
     println!("+------------------+------------+------------+");
+}
+
+fn decompress_sav(file_name: &str) -> Result<(), Error> {
+    let mut file = File::open(file_name)?;
+
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+
+    let data_len = data.len();
+
+    let mut r = Cursor::new(data);
+    let mut w = Vec::<u8>::new();
+
+    let _unk0 = r.read_le_u16()?;
+    let rle_byte = r.read_le_u16()? as u8;
+    // The length includes the rle-word and itself but not the first word
+    let length = r.read_le_u16()? as usize;
+
+    if length != data_len - 2 {
+        println!(
+            "`{}` is not a Dune save file - invalid length in header.",
+            file_name
+        );
+        return Ok(());
+    }
+
+    while let Ok(c) = r.read_u8() {
+        if c == rle_byte {
+            let cnt = r.read_u8()?;
+            let val = r.read_u8()?;
+            for _ in 0..cnt {
+                w.write_all(slice::from_ref(&val))?;
+            }
+        } else {
+            w.write_all(slice::from_ref(&c))?;
+        }
+    }
+
+    let out_file_name: String = file_name
+        .strip_suffix(".SAV")
+        .unwrap_or(file_name)
+        .to_owned()
+        + ".BIN";
+
+    let mut out_file = File::create(&out_file_name)?;
+    out_file.write_all(&w)?;
+
+    println!("Decompressed `{}` to `{}`", file_name, out_file_name);
+
+    Ok(())
 }
 
 fn extract_all(path: &Path, dat_file: &mut DatFile) -> Result<(), Error> {
@@ -335,6 +388,9 @@ fn main() -> Result<(), Error> {
 
     match &cli.command {
         Commands::List => list(&mut dat_file),
+        Commands::DecompressSav { file_name } => {
+            decompress_sav(file_name)?;
+        }
         Commands::ExtractAll => {
             extract_all(&out_path, &mut dat_file)?;
         }
