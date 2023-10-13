@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 mod bytes_ext;
 mod dat_file;
 mod error;
@@ -46,7 +48,7 @@ enum Commands {
 }
 
 fn create_file_for_entry(path: &Path, entry_name: &str) -> io::Result<File> {
-    let path = path.join(entry_name.split(r"\").collect::<PathBuf>());
+    let path = path.join(entry_name.split('\\').collect::<PathBuf>());
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
@@ -143,7 +145,7 @@ fn extract(path: &Path, dat_file: &mut DatFile, entry_name: &str) -> Result<(), 
         let new_entry_name = prefix.to_owned() + ".BIN";
         create_file_for_entry(path, &new_entry_name)?
     } else {
-        create_file_for_entry(path, &entry_name)?
+        create_file_for_entry(path, entry_name)?
     };
 
     f.write_all(data.as_slice())?;
@@ -248,7 +250,7 @@ fn extract_sprites(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error
         let filename = format!("{}-{:02}.png", file_stem, i);
         let path = Path::new(&filename);
         let file = File::create(path)?;
-        let ref mut w = BufWriter::new(file);
+        let w = &mut BufWriter::new(file);
 
         let mut encoder = png::Encoder::new(w, width as u32, height as u32);
         encoder.set_color(png::ColorType::Rgba);
@@ -276,26 +278,24 @@ fn extract_sprites(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error
                     pal_offset,
                 )?;
             }
+        } else if !is_rle_compressed {
+            sprite::draw_8bpp(
+                image_data.as_mut_slice(),
+                &mut r,
+                width,
+                height,
+                &pal,
+                pal_offset,
+            )?;
         } else {
-            if !is_rle_compressed {
-                sprite::draw_8bpp(
-                    image_data.as_mut_slice(),
-                    &mut r,
-                    width,
-                    height,
-                    &pal,
-                    pal_offset,
-                )?;
-            } else {
-                sprite::draw_8bpp_rle(
-                    image_data.as_mut_slice(),
-                    &mut r,
-                    width,
-                    height,
-                    &pal,
-                    pal_offset,
-                )?;
-            }
+            sprite::draw_8bpp_rle(
+                image_data.as_mut_slice(),
+                &mut r,
+                width,
+                height,
+                &pal,
+                pal_offset,
+            )?;
         }
 
         let mut writer = encoder.write_header()?;
@@ -317,8 +317,8 @@ fn extract_font(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
     let mut r = Cursor::new(data.as_slice());
 
     let mut ws = [0; 256];
-    for i in 0..256 {
-        ws[i] = r.read_u8()?;
+    for w in &mut ws {
+        *w = r.read_u8()? as i32;
     }
 
     for al in 0..128 {
@@ -366,7 +366,7 @@ fn extract_font(dat_file: &mut DatFile, entry_name: &str) -> Result<(), Error> {
     let filename = format!("{}.png", file_stem);
     let path = Path::new(&filename);
     let file = File::create(path)?;
-    let ref mut w = BufWriter::new(file);
+    let w = &mut BufWriter::new(file);
 
     let mut encoder = png::Encoder::new(w, width as u32, height as u32);
     encoder.set_color(png::ColorType::Rgba);

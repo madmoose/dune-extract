@@ -1,4 +1,5 @@
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Error {
     EntryNotFound,
     // InvalidDatFile,
