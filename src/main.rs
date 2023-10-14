@@ -39,6 +39,8 @@ enum Commands {
     List,
     /// Decompress RLE-compressed save file
     DecompressSav { file_name: String },
+    /// Recompress save file
+    CompressSav { file_name: String },
     /// Extracts all resource from DUNE.DAT, decompressing if needed
     ExtractAll,
     /// Extracts a resource from DUNE.DAT without decompressing
@@ -81,9 +83,11 @@ fn decompress_sav(file_name: &str) -> Result<(), Error> {
     let mut w = Vec::<u8>::new();
 
     let unk0 = r.read_le_u16()?;
-    let rle_byte = r.read_le_u16()? as u8;
+    let rle_word = r.read_le_u16()?;
     // The length includes the rle-word and itself but not the first word
     let length = r.read_le_u16()? as usize;
+
+    let rle_byte = rle_word as u8;
 
     if length != data_len - 2 {
         println!(
@@ -94,6 +98,7 @@ fn decompress_sav(file_name: &str) -> Result<(), Error> {
     }
 
     w.write_le_u16(unk0)?;
+    w.write_le_u16(rle_word)?;
 
     while let Ok(c) = r.read_u8() {
         if c == rle_byte {
@@ -117,6 +122,98 @@ fn decompress_sav(file_name: &str) -> Result<(), Error> {
     out_file.write_all(&w)?;
 
     println!("Decompressed `{}` to `{}`", file_name, out_file_name);
+
+    Ok(())
+}
+
+fn rle_compress_for_save_files<R: Read, W: Write>(
+    r: &mut R,
+    w: &mut W,
+    rle_byte: u8,
+) -> std::io::Result<()> {
+    #[derive(Default)]
+    struct State {
+        v: u8,
+        reps: usize,
+    }
+
+    impl State {
+        fn new(v: u8) -> State {
+            State { v, reps: 1 }
+        }
+    }
+
+    let mut state = State::default();
+
+    let mut output = |state: &mut State| -> std::io::Result<()> {
+        if state.reps > 2 || state.v == 0xf7 {
+            while state.reps > 0 {
+                w.write_u8(rle_byte)?;
+                w.write_u8(state.reps.min(255) as u8)?;
+                w.write_u8(state.v)?;
+                state.reps -= state.reps.min(255);
+            }
+        } else {
+            while state.reps > 0 {
+                w.write_u8(state.v)?;
+                state.reps -= 1;
+            }
+        }
+
+        Ok(())
+    };
+
+    while let Ok(b) = r.read_u8() {
+        if state.reps == 0 {
+            state = State::new(b);
+        } else if state.v == b {
+            state.reps += 1;
+        } else {
+            output(&mut state)?;
+            state = State::new(b);
+        }
+
+        if state.v == rle_byte {
+            output(&mut state)?;
+        }
+    }
+
+    output(&mut state)
+}
+
+fn compress_sav(file_name: &str) -> Result<(), Error> {
+    let mut file = File::open(file_name)?;
+
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
+
+    let mut r = Cursor::new(data);
+    let unk0 = r.read_le_u16()?;
+    let rle_word = r.read_le_u16()?;
+
+    let rle_byte = rle_word as u8;
+
+    if rle_byte != 0xf7 {
+        println!("`{}` is not a valid decompressed save game.", file_name);
+        return Ok(());
+    }
+
+    let mut w = Vec::<u8>::new();
+    rle_compress_for_save_files(&mut r, &mut w, rle_byte)?;
+
+    let out_file_name: String = file_name
+        .strip_suffix(".BIN")
+        .unwrap_or(file_name)
+        .to_owned()
+        + ".SAV";
+
+    let mut out_file = BufWriter::new(File::create(&out_file_name)?);
+    out_file.write_le_u16(unk0)?;
+    out_file.write_le_u16(rle_word)?;
+    out_file.write_le_u16((w.len() + 4) as u16)?;
+    out_file.write_all(&w)?;
+
+    println!("Compressed `{}` to `{}`", file_name, out_file_name);
 
     Ok(())
 }
@@ -396,6 +493,9 @@ fn main() -> Result<(), Error> {
         Commands::List => list(&mut dat_file),
         Commands::DecompressSav { file_name } => {
             decompress_sav(file_name)?;
+        }
+        Commands::CompressSav { file_name } => {
+            compress_sav(file_name)?;
         }
         Commands::ExtractAll => {
             extract_all(&out_path, &mut dat_file)?;
