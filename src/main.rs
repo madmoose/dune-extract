@@ -16,7 +16,11 @@ use std::{
 use clap::{Parser, Subcommand};
 use itertools::Itertools;
 
-use crate::{bytes_ext::ReadBytesExt, dat_file::DatFile, error::Error};
+use crate::{
+    bytes_ext::{ReadBytesExt, WriteBytesExt},
+    dat_file::DatFile,
+    error::Error,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "dune-extract")]
@@ -76,7 +80,7 @@ fn decompress_sav(file_name: &str) -> Result<(), Error> {
     let mut r = Cursor::new(data);
     let mut w = Vec::<u8>::new();
 
-    let _unk0 = r.read_le_u16()?;
+    let unk0 = r.read_le_u16()?;
     let rle_byte = r.read_le_u16()? as u8;
     // The length includes the rle-word and itself but not the first word
     let length = r.read_le_u16()? as usize;
@@ -88,6 +92,8 @@ fn decompress_sav(file_name: &str) -> Result<(), Error> {
         );
         return Ok(());
     }
+
+    w.write_le_u16(unk0)?;
 
     while let Ok(c) = r.read_u8() {
         if c == rle_byte {

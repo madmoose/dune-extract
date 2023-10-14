@@ -1,3 +1,14 @@
+pub trait WriteBytesExt: std::io::Write {
+    #[inline]
+    fn write_le_u16(&mut self, v: u16) -> std::io::Result<()> {
+        let buf = v.to_le_bytes();
+        self.write_all(&buf)?;
+        Ok(())
+    }
+}
+
+impl<W: std::io::Write> WriteBytesExt for W {}
+
 pub trait ReadBytesExt: std::io::Read {
     #[inline]
     fn read_u8(&mut self) -> std::io::Result<u8> {
