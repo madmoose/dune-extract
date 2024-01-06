@@ -15,11 +15,11 @@ bitfield MapAreaFlags {
     flag: 2;
 };
 
-bitfield PersoStatus {
+bitfield CharacterStatus {
     todo: 8;
 };
 
-bitfield PnjStatus {
+bitfield NpcStatus {
     unk4: 1;
     unk3: 1;
     back_from_desert_alone: 1;
@@ -30,7 +30,7 @@ bitfield PnjStatus {
     follow_me_disabled: 1;
 };
 
-bitfield Persos {
+bitfield Characters {
     
     Leto: 1;    // second byte lsb
     Jessica: 1;
@@ -38,31 +38,31 @@ bitfield Persos {
     Duncan: 1;
     Gurney: 1;
     Stilgar: 1;
-    Kines: 1;
+    Kynes: 1;
     Chani: 1;   // second byte msb
     
     Hara: 1;     // first byte lsb
     Baron: 1;
     Feyd: 1;
-    Empereur: 1;
+    Emperor: 1;
     Soldier: 1;
-    Contrebandier: 1;
+    Smuggler: 1;
     Fremen1: 1;
     Fremen2: 1;  // first byte msb
 };
 
-struct Pnj {
+struct Npc {
     u8 x_or_room;
     u8 X_or_floorplan;
     u8 Y;
     u8 y;
     u16 dialog_ptr;
     u16 unk1;
-    u16 date_pnj_started_following;
-    u16 date_pnj_stopped_following;
+    u16 date_Npc_started_following;
+    u16 date_Npc_stopped_following;
     u16 unk2;
-    u8 pnj_sprite_id;
-    PnjStatus status;
+    u8 Npc_sprite_id;
+    NpcStatus status;
 };
 
 struct Smug {
@@ -178,16 +178,16 @@ struct GameState
     u8 x0B_paul_room;                              
     u8 x0C_last_seen_room; 
     u8 x0D_previous_room;                          
-    Persos x0E_met;   
+    Characters x0E_met;   
     
                                                         
-    Persos x10_following;                     
-    Persos x12_inRoom;                    
-    u8 x14_pnj_we_speak_to; 
+    Characters x10_following;                     
+    Characters x12_inRoom;                    
+    u8 x14_Npc_we_speak_to; 
     u8 x15_unk [[color("FF0000")]];                       
     u8 x16_maybe_ingame_date_of_last_speak;           
     u16 x17_or_maybe_ingame_date_of_last_speak;     
-    PersoStatus x19_statusOfSpeakingPerson; 
+    CharacterStatus x19_statusOfSpeakingCharactern; 
     u8 x1A_not_first_phrase_of_pnf;    
     u8 x1B_unk [[color("FF0000")]];
     u8 x1C_speak_command_counter [[color("FF0000")]];
@@ -396,7 +396,7 @@ struct Save {
     
     u8 unk0D[29] [[color("000000")]];
     
-    Pnj persos[16] [[color("6666BB")]];
+    Npc persos[16] [[color("6666BB")]];
     
     Smug smugs[6] [[color("66FF66")]];
     
