@@ -65,7 +65,7 @@ struct Npc {
     NpcStatus status;
 };
 
-struct Smug {
+struct Smuggler {
     u8 unk[17];
 };
 
@@ -197,7 +197,7 @@ struct GameState
     u8 x1F_unk [[color("FF0000")]];
     
     
-    u16 x20_amount_we_need_to_pay_to_smugg;
+    u16 x20_amount_we_need_to_pay_to_smuggler;
     u8 x22_unk [[color("FF0000")]];
     u8 x23_unk [[color("FF0000")]];
     u8 x24_unk [[color("FF0000")]];                        
@@ -397,9 +397,9 @@ struct Save {
     
     u8 unk0D[29] [[color("000000")]];
     
-    Npc persos[16] [[color("6666BB")]];
+    Npc npcs[16] [[color("6666BB")]];
     
-    Smug smugs[6] [[color("66FF66")]];
+    Smuggler smugglers[6] [[color("66FF66")]];
     
     
     
