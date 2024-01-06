@@ -112,11 +112,11 @@ struct Place {
     u8 unk5;
     u8 spicedensity;
     u8 unk6;
-    u8 nbrHarvester;
-    u8 nbrOrni;
-    u8 nbrKnife;
-    u8 nbrGuns;
-    u8 nbrMods;
+    u8 nbrHarvesters;
+    u8 nbrOrnis;
+    u8 nbrKnifes;
+    u8 nbrLasguns;
+    u8 nbrWeirding_modules;
     u8 nbrAtoms;
     u8 nbrBulbs;
     u8 water;
