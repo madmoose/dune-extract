@@ -218,7 +218,7 @@ struct GameState
     u8 x26_is_FF_if_visiting_here_for_first_time;
     u8 x27_nbr_sietch_we_know_position;
     u8 x28_nbr_troops_hired;
-    u8 x29_charism;
+    u8 x29_charisma;
     u8 x29_game_phase;
     u8 x2B_unk;
     u16 x2C_unk;
