@@ -15,7 +15,7 @@ bitfield MapAreaFlags {
     flag: 2;
 };
 
-bitfield CharacterStatus {
+bitfield SpeakingCharacterStatus {
     todo: 8;
 };
 
@@ -201,7 +201,7 @@ struct GameState
     u8 x15_unk [[color("FF0000")]];                       
     u8 x16_maybe_ingame_date_of_last_speak;           
     u16 x17_or_maybe_ingame_date_of_last_speak;     
-    CharacterStatus x19_statusOfSpeakingCharactern; 
+    SpeakingCharacterStatus x19_statusOfSpeakingCharactern; 
     u8 x1A_not_first_phrase_of_pnf;    
     u8 x1B_unk [[color("FF0000")]];
     u8 x1C_speak_command_counter [[color("FF0000")]];
