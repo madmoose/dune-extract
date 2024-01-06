@@ -66,7 +66,20 @@ struct Npc {
 };
 
 struct Smuggler {
-    u8 unk[17];
+    u8 arrakis_region;
+    u8 willingness_to_haggle;
+    u8 unk1;
+    u8 unk2;
+    u8 nbrHarvesters;
+    u8 nbrOrnis;
+    u8 nbrKnifes;
+    u8 nbrLasguns;
+    u8 nbrWeirding_modules;
+    u8 harvester_price;
+    u8 ornithopter_price;
+    u8 knife_price;
+    u8 lasgun_price;
+    u8 weirding_module_price;
 };
 
 bitfield TroopEquipment {
