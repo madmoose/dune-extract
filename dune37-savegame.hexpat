@@ -85,6 +85,7 @@ bitfield PlaceStatus {
     prospected: 1;
     has_wind_trap: 1;
     visited: 1;
+    infiltrated: 1;
     battle_won: 1;
     fremen_found: 1;
     under_attack: 1;
