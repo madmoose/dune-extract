@@ -139,7 +139,7 @@ struct Place {
 struct Troop {
     u8 troop_id;
     u8 next_troop_id_in_same_place;
-    u8 position_around_sietch_on_map;
+    u8 position_around_location_on_map;
     u8 status_or_and_job;
     u8 unk1;
     u8 unk2;
@@ -151,11 +151,12 @@ struct Troop {
     u8 spice_per_hour_if_miner;
     u8 unk3;
     u16 spice_mined_if_miner;
-    u8 unk4;
-    u8 unk5;
+    u8 espionnage_discovery_status;
+    u8 equipement_repairing_status;
     u8 dissatisfaction;
     u8 speech_to_do_and_informations_to_display;
-    u8 elapsed_days_since_something;
+    //A high enough value triggers the "It's been days since we heard from you" message
+    u8 elapsed_days_since_Paul_last_spoke_to_troop;
     
     u8 motivation; 
     
