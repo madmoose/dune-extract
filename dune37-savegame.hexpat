@@ -63,6 +63,7 @@ struct Npc {
     u16 unk2;
     u8 Npc_sprite_id;
     NpcStatus status;
+    //padding[8];
 };
 
 struct Smuggler {
@@ -80,6 +81,7 @@ struct Smuggler {
     u8 knife_price;
     u8 lasgun_price;
     u8 weirding_module_price;
+    padding[3];
 };
 
 bitfield TroopEquipment {
