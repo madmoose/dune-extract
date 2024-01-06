@@ -112,7 +112,7 @@ struct Place {
     u8 unk5;
     u8 spicedensity;
     u8 unk6;
-    u8 nbrMoiss;
+    u8 nbrHarvester;
     u8 nbrOrni;
     u8 nbrKnife;
     u8 nbrGuns;
