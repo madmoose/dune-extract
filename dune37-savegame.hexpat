@@ -10,8 +10,6 @@
 
 u8 version = 0;
 
-#include <std/io.pat>
-
 struct TimeInspector {
     u16 value;
 } [[format_read("time_formatter")]];
@@ -25,8 +23,6 @@ fn time_formatter(TimeInspector timeInspector)
 };
 
 TimeInspector timeInspector @ $ [[name("Dune time")]];
-
-
 
 bitfield MapAreaFlags {
     flag: 2;
@@ -218,7 +214,7 @@ struct GameState
     u8 x15_unk [[color("FF0000")]];                       
     u8 x16_maybe_ingame_date_of_last_speak;           
     u16 x17_or_maybe_ingame_date_of_last_speak;     
-    SpeakingCharacterStatus x19_statusOfSpeakingCharactern; 
+    SpeakingCharacterStatus x19_statusOfSpeakingCharacter; 
     u8 x1A_not_first_phrase_of_pnf;    
     u8 x1B_unk [[color("FF0000")]];
     u8 x1C_speak_command_counter [[color("FF0000")]];
@@ -367,9 +363,7 @@ struct GameState
     u8 xFD_unk;
     u8 xFE_unk; 
     u8 xFF_maybe_nbr_days;   
-
 };
-
 
 struct Dialog_data {
     u32 dialog [while(std::mem::read_unsigned($, 2) != 0xFFFF)] [[color("007777")]];
@@ -379,8 +373,6 @@ struct Dialog_data {
 struct Save {
     str filename = hex::prv::get_information("file_path","");
     std::print("analysing {}", filename);
-    
-    
     
     if (std::string::contains(filename, "DUNE21")) {version = 21;}
     else if (std::string::contains(filename, "DUNE23")) {version = 23;}
@@ -412,12 +404,10 @@ struct Save {
     if (version >=37)
     u8 unk03[104] [[color("000000")]];
     
-    
     GameState gamestate; //256 bytes
     
     //if (version > 24)
     //u8 unk0C[28] [[color("FF0000")]];
-    
     
     Place places[while(std::mem::read_unsigned($, 2) != 0xFFFF)] [[color("33FF33")]]; 
     u16 end_of_places [[color("880000")]];
@@ -431,20 +421,14 @@ struct Save {
     
     Smuggler smugglers[6] [[color("66FF66")]];
     
-    
-    
     if (version ==21)
     u8 unk0E[50] [[color("000000")]];
     else
     u8 unk0E[52] [[color("000000")]];
 
-    
     u16 unk_again  [[color("000000")]];
     u16 ingame_time_again [[color("00FF00")]];
     u8 contact_distance;
-    
-    
-    
 
     if (version <=24)
     u8 unk0F[249] [[color("000000")]];
@@ -452,6 +436,5 @@ struct Save {
     u8 unk0F[234] [[color("000000")]];
    
 };
-
 
 Save save @ 0x00;
