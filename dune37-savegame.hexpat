@@ -10,6 +10,23 @@
 
 u8 version = 0;
 
+#include <std/io.pat>
+
+struct TimeInspector {
+    u16 value;
+} [[format_read("time_formatter")]];
+
+fn time_formatter(TimeInspector timeInspector)
+{
+    u16 min = ((timeInspector.value +3)  &0x000F) * 90;
+    u16 realMin = min % 60;
+    u16 hour = min / 60;
+    return std::format("{:02}h{:02}", hour,realMin );
+};
+
+TimeInspector timeInspector @ $ [[name("Dune time")]];
+
+
 
 bitfield MapAreaFlags {
     flag: 2;
