@@ -31,7 +31,7 @@ impl DatFile {
             None => "DUNE.DAT".into(),
         };
 
-        let file = File::open(&path)?;
+        let file = File::open(path)?;
         let mut reader = BufReader::new(file);
 
         let entry_count = reader.read_le_u16()? as usize;

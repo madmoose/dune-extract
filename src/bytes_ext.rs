@@ -25,10 +25,23 @@ pub trait ReadBytesExt: std::io::Read {
     }
 
     #[inline]
+    fn read_i8(&mut self) -> std::io::Result<i8> {
+        let v = self.read_u8()?;
+        Ok(v as i8)
+    }
+
+    #[inline]
     fn read_le_u16(&mut self) -> std::io::Result<u16> {
         let mut buf = [0; 2];
         self.read_exact(&mut buf)?;
         Ok(u16::from_le_bytes(buf))
+    }
+
+    #[inline]
+    fn read_le_u24(&mut self) -> std::io::Result<u32> {
+        let mut buf = [0; 4];
+        self.read_exact(&mut buf[0..3])?;
+        Ok(u32::from_le_bytes(buf))
     }
 
     #[inline]

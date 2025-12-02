@@ -1,158 +1,302 @@
-use std::io::{self, Cursor};
+#![allow(clippy::too_many_arguments)]
 
-use crate::bytes_ext::ReadBytesExt;
+use std::io::{Cursor, Seek};
 
-fn scale_6bit_to_8bit(c: u8) -> u8 {
-    (255 * (c as u16) / 63) as u8
+use crate::{
+    bytes_ext::{ReadBytesExt, WriteBytesExt},
+    frame::Frame,
+    pal::Pal,
+};
+
+pub struct SpriteSheet<'a> {
+    offsets: Vec<(usize, usize)>,
+    data: &'a [u8],
 }
 
-fn write_pixel(dst: &mut [u8], w: usize, x: usize, y: usize, pal: &[u8], c: u8) {
-    let c = c as usize;
-    dst[4 * (y * w + x) + 0] = scale_6bit_to_8bit(pal[3 * c + 0]);
-    dst[4 * (y * w + x) + 1] = scale_6bit_to_8bit(pal[3 * c + 1]);
-    dst[4 * (y * w + x) + 2] = scale_6bit_to_8bit(pal[3 * c + 2]);
-    dst[4 * (y * w + x) + 3] = 255;
+impl<'a> SpriteSheet<'a> {
+    pub fn new(data: &'a [u8]) -> Result<Self, std::io::Error> {
+        let size = data.len();
+
+        let toc_pos = u16::from_le_bytes(data[0..2].try_into().unwrap()) as usize;
+
+        let mut toc = Cursor::new(&data[toc_pos..]);
+
+        let sprite_0_pos = toc.read_le_u16()? as usize;
+        let sprite_count = sprite_0_pos / 2;
+
+        let mut offsets = Vec::with_capacity(sprite_count);
+        let mut prev_pos = sprite_0_pos;
+
+        for _ in 1..sprite_count {
+            let pos = toc.read_le_u16()? as usize;
+            offsets.push((toc_pos + prev_pos, pos - prev_pos));
+            prev_pos = pos;
+        }
+        offsets.push((toc_pos + prev_pos, size - toc_pos - prev_pos));
+
+        Ok(SpriteSheet { offsets, data })
+    }
+
+    pub fn apply_palette_update(&self, pal: &mut Pal) -> Result<(), std::io::Error> {
+        let mut r = Cursor::new(self.data);
+        let toc_pos = r.read_le_u16()?;
+
+        if toc_pos <= 2 {
+            return Ok(());
+        }
+
+        loop {
+            let index = r.read_u8()? as usize;
+            let mut count = r.read_u8()? as usize;
+
+            if index == 1 && count == 0 {
+                r.seek_relative(3)?;
+                continue;
+            }
+            if index == 0xff && count == 0xff {
+                break;
+            }
+            if count == 0 {
+                count = 256;
+            }
+
+            for i in 0..count {
+                let cr = r.read_u8()?;
+                let cg = r.read_u8()?;
+                let cb = r.read_u8()?;
+
+                pal.set(index + i, (cr, cg, cb));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn get_sprite(&'a self, id: u16) -> Option<Sprite<'a>> {
+        let &(ofs, size) = self.offsets.get(id as usize)?;
+        Some(Sprite::new_from_slice(
+            id as usize,
+            &self.data[ofs..ofs + size],
+        ))
+    }
 }
 
-pub fn draw_4bpp(
-    dst: &mut [u8],
-    src: &mut Cursor<&[u8]>,
-    w: usize,
-    h: usize,
-    pal: &[u8],
-    mode: u8,
-) -> io::Result<()> {
-    for y in 0..h {
-        let mut line_remain = 4 * ((w + 3) / 4);
-        let mut x = 0;
-        while line_remain > 0 {
-            let value = src.read_u8()?;
-            let p1 = value & 0x0f;
-            let p2 = value >> 4;
+#[derive(Debug)]
+pub struct Sprite<'a> {
+    id: usize,
+    width: u16,
+    height: u16,
+    pal_offset: u8,
+    rle: bool,
+    // flip_x: bool,
+    // flip_y: bool,
+    // scale: u8,
+    data: &'a [u8],
+}
 
-            if p1 != 0 && x < w {
-                write_pixel(dst, w, x, y, pal, p1 + mode);
-            }
-            x += 1;
+impl<'a> Sprite<'a> {
+    pub fn new_from_slice(id: usize, data: &'a [u8]) -> Self {
+        let w0 = u16::from_le_bytes(data[0..2].try_into().unwrap());
+        let w1 = u16::from_le_bytes(data[2..4].try_into().unwrap());
+        let data = &data[4..];
 
-            if p2 != 0 && x < w {
-                write_pixel(dst, w, x, y, pal, p2 + mode);
-            }
-            x += 1;
+        let flags = (w0 & 0xfe00) >> 8;
+        let width = w0 & 0x01ff;
+        let pal_offset = ((w1 & 0xff00) >> 8) as u8;
+        let height = w1 & 0x00ff;
 
-            line_remain -= 2;
+        let rle = (flags & 0x80) != 0;
+        let _flip_x = (flags & 0x40) != 0;
+        let _flip_y = (flags & 0x20) != 0;
+        let _scale = ((flags & 0x1c) >> 2) as u8;
+
+        Sprite {
+            id,
+            width,
+            height,
+            pal_offset,
+            rle,
+            // flip_x,
+            // flip_y,
+            // scale,
+            data,
         }
     }
-    Ok(())
-}
 
-pub fn draw_4bpp_rle(
-    dst: &mut [u8],
-    src: &mut Cursor<&[u8]>,
-    w: usize,
-    h: usize,
-    pal: &[u8],
-    mode: u8,
-) -> io::Result<()> {
-    for y in 0..h {
-        let mut line_remain = 4 * ((w + 3) / 4);
-        let mut x = 0;
-        while line_remain > 0 {
-            let cmd = src.read_u8()?;
-            if cmd & 0x80 != 0 {
-                let count = 257 - (cmd as u16);
-                let value = src.read_u8()?;
+    pub fn bpp(&self) -> usize {
+        if self.pal_offset < 254 {
+            4
+        } else {
+            8
+        }
+    }
 
-                let p1 = value & 0x0f;
-                let p2 = value >> 4;
-                for _ in 0..count {
-                    if p1 != 0 {
-                        write_pixel(dst, w, x, y, pal, p1 + mode);
-                    }
-                    x += 1;
-                    if p2 != 0 {
-                        write_pixel(dst, w, x, y, pal, p2 + mode);
-                    }
-                    x += 1;
-                }
-                line_remain -= 2 * (count as usize);
+    pub fn width(&self) -> usize {
+        self.width as usize
+    }
+
+    pub fn height(&self) -> usize {
+        self.height as usize
+    }
+
+    pub fn pitch(&self) -> usize {
+        if self.bpp() == 8 {
+            self.width()
+        } else {
+            2 * self.width().div_ceil(4)
+        }
+    }
+
+    pub fn pal_offset(&self) -> u8 {
+        self.pal_offset
+    }
+
+    pub fn set_pal_offset(&mut self, pal_offset: u8) {
+        self.pal_offset = pal_offset;
+    }
+
+    pub fn rle(&self) -> bool {
+        self.rle
+    }
+
+    pub fn data(&self) -> &[u8] {
+        self.data
+    }
+
+    pub fn draw(
+        &self,
+        frame: &mut Frame,
+        x: usize,
+        y: usize,
+        flip_x: bool,
+        flip_y: bool,
+        scale: u8,
+        pal_offset: u8,
+    ) -> std::io::Result<()> {
+        if self.bpp() == 8 {
+            if self.rle() {
+                let src = self.unrle()?;
+                self.draw_8bpp(&src, frame, x, y, flip_x, flip_y, scale, pal_offset);
             } else {
-                let count = (cmd + 1) as u16;
-                for _ in 0..count {
-                    let value = src.read_u8()?;
-
-                    let p1 = value & 0x0f;
-                    let p2 = value >> 4;
-
-                    if p1 != 0 {
-                        write_pixel(dst, w, x, y, pal, p1 + mode);
-                    }
-                    x += 1;
-
-                    if p2 != 0 {
-                        write_pixel(dst, w, x, y, pal, p2 + mode);
-                    }
-                    x += 1;
-                }
-                line_remain -= 2 * (count as usize);
+                let src = self.data();
+                self.draw_8bpp(src, frame, x, y, flip_x, flip_y, scale, pal_offset);
             }
+
+            // exit(0);
+            // return Ok(());
+        } else if self.rle() {
+            let src = self.unrle()?;
+            self.draw_4bb(&src, frame, x, y, flip_x, flip_y, scale, pal_offset);
+        } else {
+            let src = self.data();
+            self.draw_4bb(src, frame, x, y, flip_x, flip_y, scale, pal_offset);
         }
+        Ok(())
     }
-    Ok(())
-}
 
-pub fn draw_8bpp(
-    dst: &mut [u8],
-    src: &mut Cursor<&[u8]>,
-    w: usize,
-    h: usize,
-    pal: &[u8],
-    mode: u8,
-) -> io::Result<()> {
-    for y in 0..h {
-        for x in 0..w {
-            let value = src.read_u8()?;
-            if mode != 255 && value != 0 {
-                write_pixel(dst, w, x, y, pal, value);
-            }
-        }
-    }
-    Ok(())
-}
+    fn draw_4bb(
+        &self,
+        src: &[u8],
+        frame: &mut Frame,
+        x: usize,
+        y: usize,
+        flip_x: bool,
+        flip_y: bool,
+        _scale: u8,
+        pal_offset: u8,
+    ) {
+        let dst_x = x;
+        let dst_y = y;
 
-pub fn draw_8bpp_rle(
-    dst: &mut [u8],
-    src: &mut Cursor<&[u8]>,
-    w: usize,
-    h: usize,
-    pal: &[u8],
-    mode: u8,
-) -> io::Result<()> {
-    for y in 0..h {
-        let mut x = 0;
+        let pal_offset = if pal_offset != 0 {
+            pal_offset
+        } else {
+            self.pal_offset()
+        };
 
-        while x < w {
-            let cmd = src.read_u8()?;
-            if cmd & 0x80 != 0 {
-                let count = 257 - (cmd as u16);
-                let value = src.read_u8()?;
-                for _ in 0..count {
-                    if (mode != 255 || value != 0) && x < w {
-                        write_pixel(dst, w, x, y, pal, value);
-                    }
-                    x += 1;
+        let height = self.height();
+        let width = self.width();
+        let pitch = self.pitch();
+
+        for y in 0..height {
+            for x in 0..width {
+                let mut c = src[y * pitch + x / 2];
+                if x & 1 == 0 {
+                    c &= 0xf;
+                } else {
+                    c >>= 4;
                 }
-            } else {
-                let count = (cmd + 1) as u16;
-                for _ in 0..count {
-                    let value = src.read_u8()?;
-                    if (mode != 255 || value != 0) && x < w {
-                        write_pixel(dst, w, x, y, pal, value);
-                    }
-                    x += 1;
+
+                if c != 0 {
+                    let x = dst_x + if flip_x { width - x - 1 } else { x };
+                    let y = dst_y + if flip_y { height - y - 1 } else { y };
+
+                    frame.write_pixel(x, y, c + pal_offset);
                 }
             }
         }
     }
-    Ok(())
+
+    fn draw_8bpp(
+        &self,
+        src: &[u8],
+        frame: &mut Frame,
+        x: usize,
+        y: usize,
+        flip_x: bool,
+        flip_y: bool,
+        _scale: u8,
+        mode: u8,
+    ) {
+        let dst_x = x;
+        let dst_y = y;
+        let height = self.height();
+        let width = self.width();
+        let pitch = self.pitch();
+        let mode = if mode != 0 { mode } else { self.pal_offset() };
+
+        for y in 0..height {
+            for x in 0..width {
+                let c = src[y * pitch + x];
+                if mode != 255 || c != 0 {
+                    let x = dst_x + if flip_x { width - x - 1 } else { x };
+                    let y = dst_y + if flip_y { height - y - 1 } else { y };
+                    frame.write_pixel(x, y, c);
+                }
+            }
+        }
+    }
+
+    fn unrle(&self) -> std::io::Result<Vec<u8>> {
+        let pitch = self.pitch();
+        let mut buf = vec![0u8; self.height() * pitch];
+
+        let mut rle_src = Cursor::new(self.data());
+        let mut rle_dst = Cursor::new(&mut buf);
+
+        for _ in 0..self.height() {
+            let mut x = 0;
+            while x < pitch {
+                let count;
+                let cmd = rle_src.read_u8()?;
+                if cmd & 0x80 != 0 {
+                    count = 257 - (cmd as usize);
+                    let value = rle_src.read_u8()?;
+                    for _ in 0..count {
+                        rle_dst.write_u8(value)?;
+                    }
+                } else {
+                    count = (cmd as usize) + 1;
+                    for _ in 0..count {
+                        let value = rle_src.read_u8()?;
+                        rle_dst.write_u8(value)?;
+                    }
+                }
+
+                x += count;
+            }
+        }
+
+        Ok(buf)
+    }
 }

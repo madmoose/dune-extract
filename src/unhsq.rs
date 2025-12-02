@@ -13,7 +13,7 @@ impl Reader<'_> {
         let mut bit = (queue & 1) == 1;
         queue >>= 1;
         if queue == 0 {
-            queue = self.r.read_le_u16().unwrap();
+            queue = self.read_le_u16();
             bit = (queue & 1) == 1;
             queue = 0x8000 | (queue >> 1);
         }
